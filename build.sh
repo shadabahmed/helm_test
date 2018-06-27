@@ -75,7 +75,7 @@ pushDockerImage () {
 # Packing the helm chart
 packHelmChart() {
     echo -e "\nPacking Helm chart"
-
+    rm -rf ${BUILD_DIR}/helm
     [ -d ${BUILD_DIR}/helm ] && rm -rf ${BUILD_DIR}/helm
     mkdir -p ${BUILD_DIR}/helm
 
@@ -86,13 +86,10 @@ packHelmChart() {
 # Note - this uses the Artifactory API. You can replace it with any other solution you use.
 pushHelmChart() {
     echo -e "\nPushing Helm chart"
-
     local chart_name=$(ls -1 ${BUILD_DIR}/helm/*.tgz 2> /dev/null)
     echo "Helm chart: ${chart_name}"
-    ls -al
     [ ! -z "${chart_name}" ] || errorExit "Did not find the helm chart to deploy"
     cd ${BUILD_DIR}/helm/
-    rm -rf helm_test
     tar -xvzf *.tgz
     cd helm_test
     git init .
@@ -141,9 +138,6 @@ main () {
     echo "DOCKER_REPO:  ${DOCKER_REPO}"
     echo "DOCKER_TAG:   ${DOCKER_TAG}"
     echo "HELM_GIT_REPO:    ${HELM_GIT_REPO}"
-
-    # Cleanup
-    rm -rf ${BUILD_DIR}
 
     # Build and push docker images if needed
     if [ "${BUILD}" == "true" ]; then
