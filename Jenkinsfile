@@ -101,7 +101,6 @@ def curlTest (namespace, out) {
     This is the main pipeline section with the stages of the CI/CD
  */
 pipeline {
-
     options {
         // Build auto timeout
         timeout(time: 60, unit: 'MINUTES')
@@ -109,34 +108,20 @@ pipeline {
 
     // Some global default variables
     environment {
-        IMAGE_NAME = 'acme'
-        TEST_LOCAL_PORT = 8817
-        DEPLOY_PROD = false
-        PARAMETERS_FILE = "${JENKINS_HOME}/parameters.groovy"
-    }
-
-    parameters {
-        string (name: 'GIT_BRANCH',           defaultValue: 'master',  description: 'Git branch to build')
-        booleanParam (name: 'DEPLOY_TO_PROD', defaultValue: false,     description: 'If build and tests are good, proceed and deploy to production without manual approval')
-
-
-        // The commented out parameters are for optionally using them in the pipeline.
-        // In this example, the parameters are loaded from file ${JENKINS_HOME}/parameters.groovy later in the pipeline.
-        // The ${JENKINS_HOME}/parameters.groovy can be a mounted secrets file in your Jenkins container.
-/*
-        string (name: 'DOCKER_REG',       defaultValue: 'docker-artifactory.my',                   description: 'Docker registry')
-        string (name: 'DOCKER_TAG',       defaultValue: 'dev',                                     description: 'Docker tag')
-        string (name: 'DOCKER_USR',       defaultValue: 'admin',                                   description: 'Your helm repository user')
-        string (name: 'DOCKER_PSW',       defaultValue: 'password',                                description: 'Your helm repository password')
-        string (name: 'IMG_PULL_SECRET',  defaultValue: 'docker-reg-secret',                       description: 'The Kubernetes secret for the Docker registry (imagePullSecrets)')
-        string (name: 'HELM_REPO',        defaultValue: 'https://artifactory.my/artifactory/helm', description: 'Your helm repository')
-        string (name: 'HELM_USR',         defaultValue: 'admin',                                   description: 'Your helm repository user')
-        string (name: 'HELM_PSW',         defaultValue: 'password',                                description: 'Your helm repository password')
-*/
+        DOCKER_PSW="dockerZxdfrt30050"
+        DOCKER_REG="docker.io"
+        DOCKER_USR="shadykiller"
+        DOCKER_REPO="helm_test"
+        DOCKER_TAG="latest"
+        DOCKER_HOST="tcp://localhost:2375"
+        ID="helm_test"
+        IMAGE_NAME="helm_test"
+        TEST_LOCAL_PORT="33333"
     }
 
     // In this example, all is built and run from the master
-    agent { node { label 'master' } }
+    agent { kubernetes {} }
+
 
     // Pipeline stages
     stages {
@@ -153,46 +138,22 @@ pipeline {
 
                 // Init helm client
                 sh "helm init"
-
-                // Make sure parameters file exists
-                script {
-                    if (! fileExists("${PARAMETERS_FILE}")) {
-                        echo "ERROR: ${PARAMETERS_FILE} is missing!"
-                    }
-                }
-
-                // Load Docker registry and Helm repository configurations from file
-                load "${JENKINS_HOME}/parameters.groovy"
-
-                echo "DOCKER_REG is ${DOCKER_REG}"
-                echo "HELM_REPO  is ${HELM_REPO}"
-
-                // Define a unique name for the tests container and helm release
-                script {
-                    branch = GIT_BRANCH.replaceAll('/', '-').replaceAll('\\*', '-')
-                    ID = "${IMAGE_NAME}-${DOCKER_TAG}-${branch}"
-
-                    echo "Global ID set to ${ID}"
-                }
             }
         }
 
         ////////// Step 2 //////////
-        stage('Build and tests') {
+        stage('Build and start test container') {
             steps {
                 echo "Building application and Docker image"
-                sh "${WORKSPACE}/build.sh --build --registry ${DOCKER_REG} --tag ${DOCKER_TAG} --docker_usr ${DOCKER_USR} --docker_psw ${DOCKER_PSW}"
-
-                echo "Running tests"
-
+                sh "${WORKSPACE}/build.sh --build"
                 // Kill container in case there is a leftover
                 sh "[ -z \"\$(docker ps -a | grep ${ID} 2>/dev/null)\" ] || docker rm -f ${ID}"
 
                 echo "Starting ${IMAGE_NAME} container"
-                sh "docker run --detach --name ${ID} --rm --publish ${TEST_LOCAL_PORT}:80 ${DOCKER_REG}/${IMAGE_NAME}:${DOCKER_TAG}"
+                sh "docker run --detach --name ${ID} --rm --publish ${TEST_LOCAL_PORT}:80 ${DOCKER_REG}/${DOCKER_USR}/${DOCKER_REPO}:${DOCKER_TAG}"
 
                 script {
-                    host_ip = sh(returnStdout: true, script: '/sbin/ip route | awk \'/default/ { print $3 ":${TEST_LOCAL_PORT}" }\'')
+                    host_ip = "localhost" //sh(returnStdout: true, script: '/sbin/ip route | awk \'/default/ { print $3 ":${TEST_LOCAL_PORT}" }\'')
                 }
             }
         }
@@ -200,19 +161,19 @@ pipeline {
         // Run the 3 tests on the currently running ACME Docker container
         stage('Local tests') {
             parallel {
-                stage('Curl http_code') {
+                stage('Curl http_code'){
                     steps {
-                        curlRun ("http://${host_ip}", 'http_code')
+                        curlRun ("http://${host_ip}:${TEST_LOCAL_PORT}", 'http_code')
                     }
                 }
                 stage('Curl total_time') {
                     steps {
-                        curlRun ("http://${host_ip}", 'total_time')
+                        curlRun ("http://${host_ip}:${TEST_LOCAL_PORT}", 'total_time')
                     }
                 }
                 stage('Curl size_download') {
                     steps {
-                        curlRun ("http://${host_ip}", 'size_download')
+                        curlRun ("http://${host_ip}:${TEST_LOCAL_PORT}", 'size_download')
                     }
                 }
             }
@@ -225,12 +186,12 @@ pipeline {
                 sh "docker stop ${ID}"
 
                 echo "Pushing ${DOCKER_REG}/${IMAGE_NAME}:${DOCKER_TAG} image to registry"
-                sh "${WORKSPACE}/build.sh --push --registry ${DOCKER_REG} --tag ${DOCKER_TAG} --docker_usr ${DOCKER_USR} --docker_psw ${DOCKER_PSW}"
+                sh "${WORKSPACE}/build.sh --push"
 
                 echo "Packing helm chart"
-                sh "${WORKSPACE}/build.sh --pack_helm --push_helm --helm_repo ${HELM_REPO} --helm_usr ${HELM_USR} --helm_psw ${HELM_PSW}"
+                sh "${WORKSPACE}/build.sh --pack_helm"
             }
-        }
+        }    
 
         ////////// Step 4 //////////
         stage('Deploy to dev') {

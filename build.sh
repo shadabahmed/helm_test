@@ -41,7 +41,7 @@ dockerLogin () {
         if [ -z "${DOCKER_USR}" ] || [ -z "${DOCKER_PSW}" ]; then
             errorExit "Docker credentials not set (DOCKER_USR and DOCKER_PSW)"
         fi
-        echo ${DOCKER_PSW} | docker login -u ${DOCKER_USR} --password-stdin ${DOCKER_REG} < docker_pass.txt || errorExit "Docker login to ${DOCKER_REG} failed"
+        echo ${DOCKER_PSW} | docker login -u ${DOCKER_USR} --password-stdin ${DOCKER_REG} || errorExit "Docker login to ${DOCKER_REG} failed"
     else
         echo "Docker registry not set. Skipping"
     fi
