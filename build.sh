@@ -89,9 +89,10 @@ pushHelmChart() {
 
     local chart_name=$(ls -1 ${BUILD_DIR}/helm/*.tgz 2> /dev/null)
     echo "Helm chart: ${chart_name}"
-
+    ls -al
     [ ! -z "${chart_name}" ] || errorExit "Did not find the helm chart to deploy"
     cd ${BUILD_DIR}/helm/
+    rm -rf helm_test
     tar -xvzf *.tgz
     cd helm_test
     git init .
