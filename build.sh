@@ -7,7 +7,6 @@ BUILD="false"
 PUSH="false"
 PACK_HELM="false"
 PUSH_HELM="false"
-HELM_GIT_REPO="git@github.com:shadabahmed/helm_test_repository.git"
 
 errorExit () {
     echo -e "\nERROR: $1"; echo

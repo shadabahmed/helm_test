@@ -117,6 +117,8 @@ pipeline {
         ID="helm_test"
         IMAGE_NAME="helm_test"
         TEST_LOCAL_PORT="33333"
+        HELM_GIT_REPO="https://shadabahmed:586c7afda4325211b0f5993cb6f7ef35cf0543e4@github.com/shadabahmed/helm_test_charts.git"
+        HELM_REPO="https://github.com/shadabahmed/helm_test_charts"
     }
 
     // In this example, all is built and run from the master
@@ -190,8 +192,11 @@ pipeline {
 
                 echo "Packing helm chart"
                 sh "${WORKSPACE}/build.sh --pack_helm"
+
+                echo "Pushing helm chart"
+                sh "${WORKSPACE}/build.sh --push_helm"
             }
-        }    
+        }
 
         ////////// Step 4 //////////
         stage('Deploy to dev') {
