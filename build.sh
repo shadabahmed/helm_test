@@ -80,6 +80,8 @@ packHelmChart() {
     mkdir -p ${BUILD_DIR}/helm
 
     helm package -d ${BUILD_DIR}/helm ${SCRIPT_DIR}/helm/helm_test || errorExit "Packing helm chart ${SCRIPT_DIR}/helm/helm_test failed"
+    cd ${BUILD_DIR}/helm/
+    helm repo index .
 }
 
 # Pushing the Helm chart
@@ -90,8 +92,6 @@ pushHelmChart() {
     echo "Helm chart: ${chart_name}"
     [ ! -z "${chart_name}" ] || errorExit "Did not find the helm chart to deploy"
     cd ${BUILD_DIR}/helm/
-    tar -xvzf *.tgz
-    cd helm_test
     git init .
     git add .
     git commit -m "Updated at $(date +'%Y-%m-%d %H:%M:%S')"
